@@ -1193,9 +1193,9 @@ public class OWLAPIObo2Owl {
             if (xrefAnnotation != null) {
                 annotations.add(fac.getRDFSLabel(xrefAnnotation));
             }
-            IRI iri = oboIdToIRI(xref.toString());
+            OWLAnnotationValue v = getXrefAnnotationValue(xref.getIdref());
             ax = fac.getOWLAnnotationAssertionAxiom(trTagToAnnotationProp(tag), sub,
-                iri, annotations);
+                v, annotations);
         } else if (tagConstant == OboFormatTag.TAG_REPLACED_BY
                 || tagConstant == OboFormatTag.TAG_CONSIDER) {
             String curie = (String) clause.getValue();
@@ -1252,8 +1252,8 @@ public class OWLAPIObo2Owl {
         for (Xref x : xrefs) {
             if (!x.getIdref().isEmpty()) {
                 OWLAnnotationProperty ap = trTagToAnnotationProp(OboFormatTag.TAG_XREF.getTag());
-                IRI iri = oboIdToIRI(x.toString());
-                OWLAnnotation ann = fac.getOWLAnnotation(ap, iri);
+                OWLAnnotationValue v = getXrefAnnotationValue(x.getIdref());
+                OWLAnnotation ann = fac.getOWLAnnotation(ap, v);
                 anns.add(ann);
             }
         }
@@ -1580,6 +1580,58 @@ public class OWLAPIObo2Owl {
             throw new OWLRuntimeException(e);
         }
         return iri;
+    }
+
+    /**
+     * Try to translate an IDref into an IRI. If it cannot be so translated,
+     * return a string literal instead.
+     *
+     * FIXME: The code is partially duplicated from {@link loadOboToIRI}.
+     *
+     * @param id the id
+     * @return the iri or string literal value
+     */
+    public OWLAnnotationValue getXrefAnnotationValue(String id) {
+        if (!id.contains(":")) {
+            /* Does not look like a CURIE, return literal value. */
+            return trLiteral(id);
+        }
+
+        String[] idParts = id.split(":", 2);
+        String db = idParts[0];
+        String localId = idParts[1];
+        if (localId.contains("_")) {
+            db += "#_";// NonCanonical-Prefixed-ID
+        } else {
+            db += "_";
+        }
+
+        if (!idSpaceMap.containsKey(db)) {
+            /*
+             * If the prefix has not been declared, then we return
+             * the identifier as a literal string. This includes the
+             * case where the identifier was an actual URI.
+             */
+            return trLiteral(id);
+        } else {
+            String uriPrefix = idSpaceMap.get(db);
+            String safeId;
+            try {
+                safeId = java.net.URLEncoder.encode(localId, "US-ASCII");
+            } catch (UnsupportedEncodingException e1) {
+                throw new OWLRuntimeException(e1);
+            }
+            if (safeId.contains(" ")) {
+                safeId = safeId.replace(" ", "_");
+            }
+            IRI iri = null;
+            try {
+                iri = IRI.create(uriPrefix + safeId);
+            } catch (IllegalArgumentException e) {
+                throw new OWLRuntimeException(e);
+            }
+            return iri;
+        }
     }
 
     // 5.9.3. Special Rules for Relations
