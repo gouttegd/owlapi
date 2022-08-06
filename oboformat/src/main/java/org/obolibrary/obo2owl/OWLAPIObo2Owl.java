@@ -1586,7 +1586,7 @@ public class OWLAPIObo2Owl {
      * Try to translate an IDref into an IRI. If it cannot be so translated,
      * return a string literal instead.
      *
-     * FIXME: The code is partially duplicated from {@link loadOboToIRI}.
+     * FIXME: The code is partially duplicated from {@link #loadOboToIRI(String)}.
      *
      * @param id the id
      * @return the iri or string literal value
@@ -1595,6 +1595,21 @@ public class OWLAPIObo2Owl {
         if (!id.contains(":")) {
             /* Does not look like a CURIE, return literal value. */
             return trLiteral(id);
+        }
+
+        if (id.startsWith("http:")
+            || id.startsWith("https")
+            || id.startsWith("ftp:")
+            || id.startsWith("urn:")) {
+            /*
+             * We can only convert URL-like identifiers to IRIs if
+             * there's no risk the Owl2Obo code will try to convert
+             * them back to CURIEs.
+             */
+            int lastSlash = id.lastIndexOf('/');
+            if (lastSlash > -1 && !id.substring(lastSlash + 1).contains("_")) {
+                return IRI.create(id);
+            }
         }
 
         String[] idParts = id.split(":", 2);
@@ -1609,8 +1624,7 @@ public class OWLAPIObo2Owl {
         if (!idSpaceMap.containsKey(db)) {
             /*
              * If the prefix has not been declared, then we return
-             * the identifier as a literal string. This includes the
-             * case where the identifier was an actual URI.
+             * the identifier as a literal string.
              */
             return trLiteral(id);
         } else {
