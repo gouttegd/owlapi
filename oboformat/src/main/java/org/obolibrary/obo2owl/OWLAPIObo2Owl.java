@@ -1193,8 +1193,9 @@ public class OWLAPIObo2Owl {
             if (xrefAnnotation != null) {
                 annotations.add(fac.getRDFSLabel(xrefAnnotation));
             }
+            IRI iri = oboIdToIRI(xref.toString());
             ax = fac.getOWLAnnotationAssertionAxiom(trTagToAnnotationProp(tag), sub,
-                trLiteral(clause.getValue()), annotations);
+                iri, annotations);
         } else if (tagConstant == OboFormatTag.TAG_REPLACED_BY
                 || tagConstant == OboFormatTag.TAG_CONSIDER) {
             String curie = (String) clause.getValue();
@@ -1251,7 +1252,8 @@ public class OWLAPIObo2Owl {
         for (Xref x : xrefs) {
             if (!x.getIdref().isEmpty()) {
                 OWLAnnotationProperty ap = trTagToAnnotationProp(OboFormatTag.TAG_XREF.getTag());
-                OWLAnnotation ann = fac.getOWLAnnotation(ap, trLiteral(x));
+                IRI iri = oboIdToIRI(x.toString());
+                OWLAnnotation ann = fac.getOWLAnnotation(ap, iri);
                 anns.add(ann);
             }
         }
