@@ -44,6 +44,7 @@ import org.semanticweb.owlapi.model.OWLAnnotation;
 import org.semanticweb.owlapi.model.OWLAnnotationAssertionAxiom;
 import org.semanticweb.owlapi.model.OWLAnnotationProperty;
 import org.semanticweb.owlapi.model.OWLAnnotationValue;
+import org.semanticweb.owlapi.model.OWLAnonymousIndividual;
 import org.semanticweb.owlapi.model.OWLAsymmetricObjectPropertyAxiom;
 import org.semanticweb.owlapi.model.OWLAxiom;
 import org.semanticweb.owlapi.model.OWLAxiomVisitor;
@@ -168,7 +169,7 @@ public class OWLAPIOwl2Obo {
      * @param c the c
      * @param qualifiers the qualifiers
      */
-    protected static void addQualifiers(Clause c, Stream<OWLAnnotation> qualifiers) {
+    protected void addQualifiers(Clause c, Stream<OWLAnnotation> qualifiers) {
         qualifiers.forEach(a -> addQualifiers(c, a));
     }
 
@@ -178,7 +179,7 @@ public class OWLAPIOwl2Obo {
      * @param c the c
      * @param qualifier the qualifier
      */
-    protected static void addQualifiers(Clause c, OWLAnnotation qualifier) {
+    protected void addQualifiers(Clause c, OWLAnnotation qualifier) {
         String prop = owlObjectToTag(qualifier.getProperty());
         if (prop == null) {
             prop = qualifier.getProperty().getIRI().toString();
@@ -190,7 +191,7 @@ public class OWLAPIOwl2Obo {
         if (qualifier.getValue() instanceof OWLLiteral) {
             value = ((OWLLiteral) qualifier.getValue()).getLiteral();
         } else if (qualifier.getValue().isIRI()) {
-            value = getIdentifier((IRI) qualifier.getValue());
+            value = getIdentifier((IRI) qualifier.getValue(), idSpaceMap);
         }
         QualifierValue qv = new QualifierValue(prop, value);
         c.addQualifierValue(qv);
@@ -258,7 +259,7 @@ public class OWLAPIOwl2Obo {
      * @param annotations set of annotations for the entity @return replaced_by if it is an alt_id
      * @return alternate id check result
      */
-    private static Optional<OboAltIdCheckResult> checkForOboAltId(
+    private Optional<OboAltIdCheckResult> checkForOboAltId(
         Collection<OWLAnnotationAssertionAxiom> annotations) {
         String replacedBy = null;
         boolean isMerged = false;
@@ -297,7 +298,7 @@ public class OWLAPIOwl2Obo {
     }
 
     @Nullable
-    protected static String handleIAO10001(@Nullable String replacedBy,
+    protected String handleIAO10001(@Nullable String replacedBy,
         final Set<OWLAnnotationAssertionAxiom> unrelatedAxioms, OWLAnnotationAssertionAxiom axiom) {
         OWLAnnotationValue value = axiom.getValue();
         Optional<OWLLiteral> asLiteral = value.asLiteral();
@@ -308,7 +309,8 @@ public class OWLAPIOwl2Obo {
         Optional<IRI> asIRI = value.asIRI();
         if (asIRI.isPresent()) {
             // translate IRI to OBO style ID
-            return getIdentifier(asIRI.get());
+            String id = getIdentifier(asIRI.get(), idSpaceMap);
+            return id;
         }
         unrelatedAxioms.add(axiom);
         return replacedBy;
@@ -385,6 +387,10 @@ public class OWLAPIOwl2Obo {
      * @return obo identifier
      */
     public static String getIdentifier(IRI iriId) {
+        return getIdentifier(iriId, null);
+    }
+    
+    public static String getIdentifier(IRI iriId, Map<String, String> idSpaceMap) {
         String iri = iriId.toString();
         // canonical IRIs
         String id = getId(iri);
@@ -427,6 +433,16 @@ public class OWLAPIOwl2Obo {
                 sb.append(s[i]);
             }
             return sb.toString();
+        }
+        if ( idSpaceMap != null ) {
+        String iriAsString = iriId.getIRIString();
+        for ( String base : idSpaceMap.keySet()) {
+            if ( iriAsString.startsWith(base)) {
+                String prefix = idSpaceMap.get(base);
+                String localId = iri.substring(base.length());
+                return String.format("%s:%s", prefix, localId);
+            }
+        }
         }
         return iri;
     }
@@ -725,6 +741,7 @@ public class OWLAPIOwl2Obo {
     protected OBODoc tr() {
         setObodoc(new OBODoc());
         preProcess();
+        Set<Clause> clauses = processPrefixMap();
         tr(getOWLOntology());
         // declarations need to be sorted - otherwise there is a risk of id being processed before
         // altId, which causes spurious clauses.
@@ -741,7 +758,43 @@ public class OWLAPIOwl2Obo {
                 headerFrame.addClause(new Clause(OboFormatTag.TAG_OWL_AXIOMS, axiomString));
             }
         }
+        if (!clauses.isEmpty()) {
+            Frame headerFrame = getObodoc().getHeaderFrame();
+            if (headerFrame == null) {
+                headerFrame = new Frame(FrameType.HEADER);
+                getObodoc().setHeaderFrame(headerFrame);
+            }
+            for (Clause clause : clauses) {
+                headerFrame.addClause(clause);
+            }
+        }
         return getObodoc();
+    }
+    
+    private Set<Clause> processPrefixMap() {
+        Set<Clause> clauses = new HashSet<Clause>();
+        OWLDataFactory fac = getOWLOntology().getOWLOntologyManager().getOWLDataFactory();
+        for (OWLAnnotation annot : getOWLOntology().getAnnotations(fac.getOWLAnnotationProperty("http://www.w3.org/ns/shacl#declare"))) {
+            String prefix = null;
+            String baseurl = null;
+            
+            for (OWLAnnotationAssertionAxiom ax : getOWLOntology().getAnnotationAssertionAxioms(annot.getValue().asAnonymousIndividual().get())) {
+                String axIri = ax.getProperty().getIRI().toString();
+                if ( axIri.equals("http://www.w3.org/ns/shacl#prefix") ) {
+                    prefix = ax.getValue().asLiteral().get().getLiteral();
+                }
+                else if ( axIri.equals("http://www.w3.org/ns/shacl#namespace") ) {
+                    baseurl = ax.getValue().asLiteral().get().getLiteral();
+                }
+            }
+            
+            if ( prefix != null && baseurl != null ) {
+                idSpaceMap.put(baseurl, prefix);
+                clauses.add(new Clause(OboFormatTag.TAG_IDSPACE, String.format("%s %s", prefix, baseurl)));
+            }
+        }
+        
+        return clauses;
     }
 
     private void accept(Stream<? extends OWLAxiom> axioms) {
@@ -1478,7 +1531,7 @@ public class OWLAPIOwl2Obo {
             OWLLiteral l = (OWLLiteral) annVal;
             value = l.isBoolean() ? Boolean.valueOf(l.parseBoolean()) : l.getLiteral();
         } else if (annVal.isIRI()) {
-            value = getIdentifier((IRI) annVal);
+            value = getIdentifier((IRI) annVal, idSpaceMap);
         }
         if (OboFormatTag.TAG_EXPAND_EXPRESSION_TO.getTag().equals(tag)) {
             String s = value.toString();
@@ -1854,7 +1907,7 @@ public class OWLAPIOwl2Obo {
      * @return the term frame
      */
     protected Frame getTermFrame(OWLClass entity) {
-        String id = getIdentifier(entity.getIRI());
+        String id = getIdentifier(entity.getIRI(), idSpaceMap);
         return getTermFrame(id);
     }
 

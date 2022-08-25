@@ -44,9 +44,11 @@ import org.semanticweb.owlapi.model.AddOntologyAnnotation;
 import org.semanticweb.owlapi.model.AxiomType;
 import org.semanticweb.owlapi.model.IRI;
 import org.semanticweb.owlapi.model.OWLAnnotation;
+import org.semanticweb.owlapi.model.OWLAnnotationAssertionAxiom;
 import org.semanticweb.owlapi.model.OWLAnnotationProperty;
 import org.semanticweb.owlapi.model.OWLAnnotationSubject;
 import org.semanticweb.owlapi.model.OWLAnnotationValue;
+import org.semanticweb.owlapi.model.OWLAnonymousIndividual;
 import org.semanticweb.owlapi.model.OWLAxiom;
 import org.semanticweb.owlapi.model.OWLClass;
 import org.semanticweb.owlapi.model.OWLClassExpression;
@@ -104,6 +106,7 @@ public class OWLAPIObo2Owl {
      */
     public static final String IRI_PROP_ISREVERSIBLEPROPERTYCHAIN =
         DEFAULT_IRI_PREFIX + "IAO_isReversiblePropertyChain";
+    public static final String SHACL_PREFIX = "http://www.w3.org/ns/shacl#";
     protected static final Map<String, IRI> ANNOTATIONPROPERTYMAP = initAnnotationPropertyMap();
     private static final Logger LOG = LoggerFactory.getLogger(OWLAPIObo2Owl.class);
     private static final Set<String> SKIPPED_QUALIFIERS = Sets.newHashSet("gci_relation",
@@ -608,9 +611,20 @@ public class OWLAPIObo2Owl {
             } else if (tag == OboFormatTag.TAG_IDSPACE) {
                 for (Clause clause : headerFrame.getClauses(t)) {
                     Object[] values = clause.getValues().toArray();
-                    String prefix = values[0].toString() + '_';
+                    String prefix = values[0].toString();
                     String baseurl = values[1].toString();
-                    idSpaceMap.put(prefix, baseurl);
+                    idSpaceMap.put(prefix + '_', baseurl);
+                    
+                    OWLAnonymousIndividual ind = fac.getOWLAnonymousIndividual();
+                    addOntologyAnnotation(fac.getOWLAnnotationProperty(SHACL_PREFIX + "declare"),
+                        ind, CollectionFactory.createSet());
+                    add(fac.getOWLAnnotationAssertionAxiom(
+                        fac.getOWLAnnotationProperty(SHACL_PREFIX + "prefix"),
+                        ind, trLiteral(prefix)));
+                    add(fac.getOWLAnnotationAssertionAxiom(
+                        fac.getOWLAnnotationProperty(SHACL_PREFIX + "namespace"),
+                        ind, trLiteral(baseurl)));
+                    
                 }
             } else if (tag == OboFormatTag.TAG_OWL_AXIOMS) {
                 // in theory, there should only be one tag
