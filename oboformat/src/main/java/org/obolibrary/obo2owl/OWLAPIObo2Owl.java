@@ -560,7 +560,6 @@ public class OWLAPIObo2Owl {
                     String baseUrl = values[1].toString();
 
                     // TODO - add the prefix to the idSpaceMap
-                    // TODO - handle the optional comment
 
                     OWLAnonymousIndividual ind = fac.getOWLAnonymousIndividual();
                     addOntologyAnnotation(
@@ -572,6 +571,12 @@ public class OWLAPIObo2Owl {
                     add(fac.getOWLAnnotationAssertionAxiom(
                         fac.getOWLAnnotationProperty(Obo2OWLConstants.SHACL_NAMESPACE), ind,
                         trLiteral(baseUrl)));
+
+                    if (values.length == 3 && !values[2].toString().isEmpty()) {
+                        add(fac.getOWLAnnotationAssertionAxiom(
+                            fac.getOWLAnnotationProperty(OWLRDFVocabulary.RDFS_COMMENT.getIRI()),
+                            ind, trLiteral(values[2].toString())));
+                    }
                 }
             } else if (tag == OboFormatTag.TAG_OWL_AXIOMS) {
                 // in theory, there should only be one tag

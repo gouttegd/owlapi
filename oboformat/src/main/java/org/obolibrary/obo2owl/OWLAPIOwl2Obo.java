@@ -1128,6 +1128,7 @@ public class OWLAPIOwl2Obo {
         OWLAnnotationValue annVal, @Nonnull Set<OWLAnnotation> qualifiers, @Nonnull Frame frame) {
         String prefix = null;
         String baseUrl = null;
+        String comment = null;
 
         for (OWLAnnotationAssertionAxiom ax : getOWLOntology()
             .getAnnotationAssertionAxioms(annVal.asAnonymousIndividual().get())) {
@@ -1136,13 +1137,20 @@ public class OWLAPIOwl2Obo {
                 prefix = ax.getValue().asLiteral().get().getLiteral();
             } else if (propIRI.equals(Obo2OWLConstants.SHACL_NAMESPACE)) {
                 baseUrl = ax.getValue().asLiteral().get().getLiteral();
+            } else if (propIRI.equals(OWLRDFVocabulary.RDFS_COMMENT.getIRI())) {
+                comment = ax.getValue().asLiteral().get().getLiteral();
             }
         }
 
         if (prefix != null && baseUrl != null) {
             // TODO - add to the IdSpaceMap
-            frame.addClause(
-                new Clause(OboFormatTag.TAG_IDSPACE, String.format("%s %s", prefix, baseUrl)));
+            Clause clause = new Clause(OboFormatTag.TAG_IDSPACE);
+            clause.addValue(prefix);
+            clause.addValue(baseUrl);
+            if (comment != null) {
+                clause.addValue(comment);
+            }
+            frame.addClause(clause);
             return true;
         }
 
