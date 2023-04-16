@@ -1707,22 +1707,18 @@ public class OWLAPIObo2Owl {
         String db;
         String localId;
         if (idParts.length > 1) {
+            // Prefixed-ID (canonical or not)
             db = idParts[0];
             localId = idParts[1];
             if (localId.contains("_")) {
-                db += "#_";// NonCanonical-Prefixed-ID
+                db += "#_"; // NonCanonical-Prefixed-ID
             } else {
                 db += "_";
             }
-        } else if (idParts.length == 0) {
-            db = getDefaultIDSpace() + '#';
-            localId = id;
-        } else {// == 1
-                // todo use owlOntology IRI
-            db = getDefaultIDSpace() + '#';
-            // if(id.contains("_"))
-            // db += "_";
-            localId = idParts[0];// Unprefixed-ID
+        } else {
+            // Unprefixed-ID
+            db = getDefaultIDSpace() + '#'; // TODO - use owlOntology IRI
+            localId = idParts[0];
 
         }
         String uriPrefix;
