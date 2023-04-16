@@ -46,6 +46,7 @@ import org.semanticweb.owlapi.model.OWLAnnotation;
 import org.semanticweb.owlapi.model.OWLAnnotationProperty;
 import org.semanticweb.owlapi.model.OWLAnnotationSubject;
 import org.semanticweb.owlapi.model.OWLAnnotationValue;
+import org.semanticweb.owlapi.model.OWLAnonymousIndividual;
 import org.semanticweb.owlapi.model.OWLAxiom;
 import org.semanticweb.owlapi.model.OWLClass;
 import org.semanticweb.owlapi.model.OWLClassExpression;
@@ -548,7 +549,30 @@ public class OWLAPIObo2Owl {
                         trAnnotations(clause));
                 }
             } else if (tag == OboFormatTag.TAG_IDSPACE) {
-                // do not translate, as they are just directives? TODO ask Chris
+                for (Clause clause : headerFrame.getClauses(t)) {
+                    Object[] values = clause.getValues().toArray();
+                    if (values.length < 2) {
+                        LOG.warn("Ignoring ill-formed idspace tag");
+                        continue;
+                    }
+
+                    String prefix = values[0].toString();
+                    String baseUrl = values[1].toString();
+
+                    // TODO - add the prefix to the idSpaceMap
+                    // TODO - handle the optional comment
+
+                    OWLAnonymousIndividual ind = fac.getOWLAnonymousIndividual();
+                    addOntologyAnnotation(
+                        fac.getOWLAnnotationProperty(Obo2OWLConstants.SHACL_DECLARE), ind,
+                        CollectionFactory.createSet());
+                    add(fac.getOWLAnnotationAssertionAxiom(
+                        fac.getOWLAnnotationProperty(Obo2OWLConstants.SHACL_PREFIX), ind,
+                        trLiteral(prefix)));
+                    add(fac.getOWLAnnotationAssertionAxiom(
+                        fac.getOWLAnnotationProperty(Obo2OWLConstants.SHACL_NAMESPACE), ind,
+                        trLiteral(baseUrl)));
+                }
             } else if (tag == OboFormatTag.TAG_OWL_AXIOMS) {
                 // in theory, there should only be one tag
                 // but we can silently collapse multiple tags

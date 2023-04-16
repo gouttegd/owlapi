@@ -919,6 +919,9 @@ public class OWLAPIOwl2Obo {
                     return true;
                 }
             }
+            if (prop.getIRI().equals(Obo2OWLConstants.SHACL_DECLARE)) {
+                return trPrefixDeclarationPropertyValue(prop, annVal, qualifiers, frame);
+            }
             // annotation property does not correspond to a mapping to a tag in
             // the OBO syntax -
             // use the property_value tag
@@ -1109,6 +1112,41 @@ public class OWLAPIOwl2Obo {
             frame.addClause(clause);
         }
         return true;
+    }
+
+    /**
+     * Translate a SHACL-based prefix declaration property.
+     * 
+     * @param prop       the prop
+     * @param annVal     annotation value
+     * @param qualifiers the qualifiers
+     * @param frame      the frame
+     * @return true if the prefix declaration is complete (prefix and namespace are
+     *         present)
+     */
+    protected boolean trPrefixDeclarationPropertyValue(OWLAnnotationProperty prop,
+        OWLAnnotationValue annVal, @Nonnull Set<OWLAnnotation> qualifiers, @Nonnull Frame frame) {
+        String prefix = null;
+        String baseUrl = null;
+
+        for (OWLAnnotationAssertionAxiom ax : getOWLOntology()
+            .getAnnotationAssertionAxioms(annVal.asAnonymousIndividual().get())) {
+            IRI propIRI = ax.getProperty().getIRI();
+            if (propIRI.equals(Obo2OWLConstants.SHACL_PREFIX)) {
+                prefix = ax.getValue().asLiteral().get().getLiteral();
+            } else if (propIRI.equals(Obo2OWLConstants.SHACL_NAMESPACE)) {
+                baseUrl = ax.getValue().asLiteral().get().getLiteral();
+            }
+        }
+
+        if (prefix != null && baseUrl != null) {
+            // TODO - add to the IdSpaceMap
+            frame.addClause(
+                new Clause(OboFormatTag.TAG_IDSPACE, String.format("%s %s", prefix, baseUrl)));
+            return true;
+        }
+
+        return false;
     }
 
     /**

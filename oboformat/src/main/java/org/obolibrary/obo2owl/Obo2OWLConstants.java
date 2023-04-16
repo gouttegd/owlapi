@@ -32,6 +32,18 @@ public class Obo2OWLConstants {
     @Nonnull
     public static final IRI IRI_IAO_0000227 = IRI.create(DEFAULT_IRI_PREFIX + "IAO_0000227");
 
+    /** IRI for SHACL's prefix declaration property */
+    @Nonnull
+    public static final IRI SHACL_DECLARE = IRI.create("http://www.w3.org/ns/shacl#declare");
+
+    /** IRI for the prefix property of a SHACL prefix declaration */
+    @Nonnull
+    public static final IRI SHACL_PREFIX = IRI.create("http://www.w3.org/ns/shacl#prefix");
+
+    /** IRI for the namespace property of a SHACL prefix declaration */
+    @Nonnull
+    public static final IRI SHACL_NAMESPACE = IRI.create("http://www.w3.org/ns/shacl#namespace");
+
     /**
      * @param d date to format
      * @return formatted string
